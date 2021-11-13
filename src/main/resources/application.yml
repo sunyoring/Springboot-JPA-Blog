@@ -5,4 +5,8 @@ spring:
     username: sunyoring
     password: sunyoring
 
+  devtools:
+    livereload:
+      enabled: true
+
 # yml방식이란 ? -  springBoot는 xml이 아니라 yml에 프로젝트에 관한 모든 설정을 적는다. 중복 작성되는 부분이 적고 xml 방식이나 properties 보다 편리하다. 
