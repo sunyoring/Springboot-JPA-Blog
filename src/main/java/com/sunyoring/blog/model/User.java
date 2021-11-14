@@ -4,11 +4,12 @@ import java.sql.Timestamp;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 
-import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 
 import lombok.AllArgsConstructor;
@@ -42,6 +43,7 @@ Hibernate:
 @NoArgsConstructor
 @Builder // 빌더패턴
 @Entity  // User클래스가 MySQL에 테이블이 생성된다. (제일 아래에 위치하는 것이 좋음)
+//@DynamicInsert  // insert 시 null인 값을 제외시켜준다. -> default 값을 정해 둔 컬럼일 경우 아무 값이 없을 때 처음에 null로 쿼리가 들어가기 때문에 이 것을 적용해주면 된다.
 public class User {
 
 	@Id //Primary key
@@ -57,8 +59,12 @@ public class User {
 	@Column(nullable = false, length = 50)
 	private String email;
 	
-	@ColumnDefault("'user'")  //기본값 user인데 " " 안에  ' '  로 넣어야함
- 	private String role;  // admin , user , manager 등 등의 권한을 부여할 수 있도록 하는 것.   // 나중에는 String이 아니라 도메인을 정의할 수 있는  Enum을 쓰는 것이 좋다. (admin, user, manager)라는 값만 들어갈 수 있도록  
+//	@ColumnDefault("'user'")  //기본값 user인데 " " 안에  ' '  로 넣어야함  
+//				 -> @DynamicInsert 어노테이션과 같이 사용하면 되는데 문제는 양이 많아질수록 일일히 붙여주기 번거롭고 어노테이션이 덕지 덕지 붙여지기 때문에 좋은 방법은 아니다.  
+// 데이터가 들어올 때 처리 해줄 수 있다. user.setRole("user"); 와 같은 방법으로 처리 !
+ 	@Enumerated(EnumType.STRING)   //DB에는 RoleType이라는 자료형이 없기 때문에 STRING인 것을 명시해준다.
+	private RoleType role;  // admin , user , manager 등 등의 권한을 부여할 수 있도록 하는 것.   
+ 	//String이 아니라 도메인을 정의할 수 있는  Enum을 쓰는 것이 좋다. (ADMIN,USER)라는 값만 들어갈 수 있도록 RoleType이라는 Enum을 정의해서 사용
 	
 	@CreationTimestamp  // 시간이 자동으로 입력
 	private Timestamp createDate;   //가입한 시간 SYSDATE 를 쿼리로 적을 수 있지만 어노테이션으로도 가능
