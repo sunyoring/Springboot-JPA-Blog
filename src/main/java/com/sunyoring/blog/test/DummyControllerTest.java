@@ -1,11 +1,22 @@
 package com.sunyoring.blog.test;
 
+import java.util.List;
 import java.util.function.Supplier;
 
+import javax.transaction.Transactional;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -13,11 +24,96 @@ import com.sunyoring.blog.model.RoleType;
 import com.sunyoring.blog.model.User;
 import com.sunyoring.blog.repository.UserRepository;
 
+
 @RestController
 public class DummyControllerTest {
 
 	@Autowired  //UserRepository의 타입으로 스프링 컨테이너에 등록 된 것이 있으면 가져와서 넣어준다.  -> 의존성 주입 ( DI ) **스프링의 대표 특징
 	private UserRepository userRepository;
+	
+	
+	
+	@DeleteMapping("/dummy/user/{id}")
+	public String delete(@PathVariable int id) {
+		//  userRepository.deleteById(id); //이렇게 만 처리할 경우에는 어떤 에러가 발생할 지 모르기때문에 위험하다. 예를 들어 없는 id가 들어왔을 경우	
+		try {
+			userRepository.deleteById(id);
+		}catch(EmptyResultDataAccessException e) {
+			return "삭제에 실패하였습니다. 해당 id는 존재하지 않습니다.";
+		}
+
+		return "삭제되었습니다. id : " + id;
+	}
+	
+	
+	
+	
+	//업데이트 //email, password 를 받는다. 
+	@Transactional  //함수 종료시에 자동  commit이 됨.
+	@PutMapping("/dummy/user/{id}")
+	public User updateUser(@PathVariable int id, @RequestBody User requestUser) {  //파라미터를 json으로 받아서 테스트 @RequestBody 어노테이션 사용  
+		//스프링 MessageConverter의 Jackson라이브러리가 json을 자바 Object로 변화해서 받아줌 -> User requestUser로 !!!   
+		System.out.println("id : " + id);
+		System.out.println("email : " + requestUser.getEmail());
+		System.out.println("password  :  " + requestUser.getPassword());
+		
+		
+		/*
+		requestUser.setId(id);
+		userRepository.save(requestUser);
+		*/
+		//이 상태 그대로 저장하면 PropertyValueException이 발생한다. username은 null이기 때문이다.
+	   // 강제로 request.setUsername("... ") 를 한다면 문제없이 실행되지만 업데이트 되면서 requstUser의 값이 없는 다른 컬럼들은 값이 null이 되버린다. 
+	  // 위와 같은 문제를 극복하며 UPDATE하기 위해서는
+		
+		User user = userRepository.findById(id).orElseThrow(()->{      //id로 유저를 먼저 찾고 
+		
+			return new IllegalArgumentException("수정이 실패하였습니다.");
+		});
+		
+		//그 유저에 값을 요청된 업데이트 될 값들을 set해준 뒤 
+		user.setPassword(requestUser.getPassword());
+		user.setEmail(requestUser.getEmail());
+		
+		// save 한다.  (방법 1 ) 
+//		userRepository.save(user);
+		 // ***  save() 는 INSERT 시 사용하는 것인데 id값을 넘겨줄 때 해당 id에 대한 데이터가 존재한다면 그것을 UPDATE로 인식한다.
+
+		// (방법 2)  - 더티체킹
+		// 	@Transactional 을 사용한다.
+		
+		// * 더티체킹이란 ??
+		// 상태 변경 검사이다.
+		return user;		
+	}
+	
+	
+	//특별한 파라미터를 받을 필요가 없음
+	// http://localhost:8000/blog/dummy/user
+	@GetMapping("/dummy/users")
+	public List<User> userList(){		
+		return userRepository.findAll();
+	}
+	
+	//한 페이지당 2 건의 데이터를 리턴받을 예정 -> 페이징 기법!!! 스트링부트의 제공 기능
+	@GetMapping("/dummy/user")
+	public List<User> pageList(@PageableDefault(size=1,sort="id",direction = Sort.Direction.DESC) Pageable pageable){  //2건씩 가져오고 id를 기준 내림차순으로 정렬
+		//Pageable ->  package org.springframework.data.domain;
+		//http://localhost:8000/blog/dummy/user?page=0 페이지는 0부터 시작
+		
+		Page<User> pagingUser = userRepository.findAll(pageable);
+		/* 참고
+		 * 분기 처리 활용
+			if(pagingUser.isLast()) {
+			}else if(pagingUser.isFirst()) {
+				
+			}
+		*/
+		List<User> users = pagingUser.getContent();
+		//페이지의 부가적인 정보 (offset, pageNum 등 등을 보고싶다면 getContet() 를 빼고 Page 타입으로 받으면 된다.
+		
+		return users;
+	}
 	
 	//{id} 주소로 파라미터를 전달받을 수 있음.
 	// http://localhost:8000/blog/dummy/user/3
